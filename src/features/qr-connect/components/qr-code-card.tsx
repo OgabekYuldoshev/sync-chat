@@ -1,28 +1,24 @@
-import { Share2 } from "lucide-react";
+"use client";
+
+import { Check, Copy } from "lucide-react";
+import { useState } from "react";
+import QRCode from "react-qr-code";
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
 
-// biome-ignore format: keep the pattern rows visually aligned
-const QR_PATTERN = [
-	1, 1, 1, 0, 1, 0,
-	1, 0, 1, 0, 0, 1,
-	1, 1, 1, 0, 1, 1,
-	0, 0, 0, 1, 0, 0,
-	1, 0, 1, 0, 1, 1,
-	1, 1, 0, 1, 0, 1,
-];
-
-const QR_CELLS = QR_PATTERN.map((filled, index) => ({
-	id: `qr-cell-${index}`,
-	filled: filled === 1,
-}));
-
 type QrCodeCardProps = {
 	inviteLink: string;
-	onShare?: () => void;
 };
 
-export function QrCodeCard({ inviteLink, onShare }: QrCodeCardProps) {
+export function QrCodeCard({ inviteLink }: QrCodeCardProps) {
+	const [copied, setCopied] = useState(false);
+
+	async function handleCopy() {
+		await navigator.clipboard.writeText(inviteLink);
+		setCopied(true);
+		setTimeout(() => setCopied(false), 2000);
+	}
+
 	return (
 		<Card className="flex flex-col items-center gap-5 p-8 text-center">
 			<div className="space-y-1">
@@ -32,29 +28,22 @@ export function QrCodeCard({ inviteLink, onShare }: QrCodeCardProps) {
 				</p>
 			</div>
 
-			<div
-				aria-hidden
-				className="grid size-48 grid-cols-6 grid-rows-6 gap-1.5 rounded-2xl bg-surface p-4"
-			>
-				{QR_CELLS.map((cell) => (
-					<span
-						key={cell.id}
-						className={
-							cell.filled
-								? "rounded-[3px] bg-foreground"
-								: "rounded-[3px] bg-transparent"
-						}
-					/>
-				))}
+			<div className="rounded-2xl bg-white p-4">
+				<QRCode
+					value={inviteLink}
+					size={176}
+					fgColor="#0a0a0a"
+					bgColor="#ffffff"
+				/>
 			</div>
 
 			<p className="max-w-[220px] truncate text-muted-foreground text-xs">
 				{inviteLink}
 			</p>
 
-			<Button onClick={onShare} className="w-full">
-				<Share2 className="size-4" />
-				Share invite link
+			<Button onClick={handleCopy} className="w-full">
+				{copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+				{copied ? "Copied!" : "Copy invite link"}
 			</Button>
 		</Card>
 	);
