@@ -13,11 +13,23 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    # Coolify's "Raw Docker Compose Deployment" does NOT auto-generate Traefik
+    # routing for compose services — labels must be set explicitly, or the
+    # request never reaches this container and the browser sees /ws stuck
+    # "pending" forever. Set APP_DOMAIN in Coolify's environment variables for
+    # this resource (e.g. chat.example.com), then redeploy. Traefik forwards
+    # WebSocket upgrades automatically once the router below matches — no
+    # separate WS config needed.
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sync-chat.rule=Host(`${APP_DOMAIN}`)"
+      - "traefik.http.routers.sync-chat.entrypoints=https"
+      - "traefik.http.routers.sync-chat.tls=true"
+      - "traefik.http.routers.sync-chat.tls.certresolver=letsencrypt"
+      - "traefik.http.services.sync-chat.loadbalancer.server.port=6677"
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -26,6 +38,8 @@ services:
       timeout: 3s
       retries: 5
     restart: unless-stopped
+    labels:
+      - "traefik.enable=false"
 
 volumes:
   redis-data:
