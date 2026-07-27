@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+.husky
+.env
+.env.*
+!.env.example
+*.md
+skills
+.DS_Store
+npm-debug.log*

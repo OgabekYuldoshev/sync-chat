@@ -38,7 +38,12 @@ export function isSignalingUpgrade(url: string | undefined): boolean {
 	return new URL(url, "http://localhost").pathname === SIGNALING_PATH;
 }
 
-export function attachSignalingServer(httpServer: HttpServer): void {
+/** Closes every open signaling connection and stops accepting new ones. */
+export type SignalingServerCloser = () => void;
+
+export function attachSignalingServer(
+	httpServer: HttpServer,
+): SignalingServerCloser {
 	const wss = new WebSocketServer({ noServer: true });
 	const connections = new Map<string, Connection>();
 
@@ -199,4 +204,11 @@ export function attachSignalingServer(httpServer: HttpServer): void {
 			});
 		},
 	);
+
+	return () => {
+		for (const connection of connections.values()) {
+			connection.ws.close(1001, "Server shutting down");
+		}
+		wss.close();
+	};
 }
