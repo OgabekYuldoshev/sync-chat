@@ -5,8 +5,9 @@ export type MessageAttachmentType = "image" | "video" | "audio" | "file";
 export type MessageAttachment = {
 	type: MessageAttachmentType;
 	name: string;
-	url: string;
-	sizeLabel?: string;
+	mimeType: string;
+	dataUrl: string;
+	sizeLabel: string;
 	durationLabel?: string;
 };
 

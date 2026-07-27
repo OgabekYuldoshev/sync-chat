@@ -1,16 +1,30 @@
 "use client";
 
-import { Mic, Paperclip, SendHorizontal, Smile } from "lucide-react";
-import { useState } from "react";
+import { Mic, Paperclip, SendHorizontal } from "lucide-react";
+import { useRef, useState } from "react";
+import TextareaAutosize from "react-textarea-autosize";
+import { toast } from "sonner";
+import { EmojiPickerButton } from "@/features/chat/components/emoji-picker-button";
+import { RecordingBar } from "@/features/chat/components/recording-bar";
+import { MAX_ATTACHMENT_BYTES } from "@/features/chat/services/file-attachment";
 import { Button } from "@/shared/components/ui/button";
-import { Textarea } from "@/shared/components/ui/textarea";
+import { formatFileSize } from "@/shared/utils/format-file-size";
 
 type MessageComposerProps = {
 	onSend?: (content: string) => void;
+	onSendFile?: (file: File) => void;
+	onSendAudio?: (blob: Blob, durationSeconds: number) => void;
 };
 
-export function MessageComposer({ onSend }: MessageComposerProps) {
+export function MessageComposer({
+	onSend,
+	onSendFile,
+	onSendAudio,
+}: MessageComposerProps) {
 	const [draft, setDraft] = useState("");
+	const [isRecording, setIsRecording] = useState(false);
+	const textareaRef = useRef<HTMLTextAreaElement>(null);
+	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	function handleSend() {
 		const trimmed = draft.trim();
@@ -29,35 +43,92 @@ export function MessageComposer({ onSend }: MessageComposerProps) {
 		}
 	}
 
+	function handleEmojiSelect(emoji: string) {
+		const textarea = textareaRef.current;
+		if (!textarea) {
+			setDraft((previous) => previous + emoji);
+			return;
+		}
+
+		const start = textarea.selectionStart ?? draft.length;
+		const end = textarea.selectionEnd ?? draft.length;
+		const next = `${draft.slice(0, start)}${emoji}${draft.slice(end)}`;
+		setDraft(next);
+
+		requestAnimationFrame(() => {
+			textarea.focus();
+			const cursor = start + emoji.length;
+			textarea.setSelectionRange(cursor, cursor);
+		});
+	}
+
+	function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+		const file = event.target.files?.[0];
+		event.target.value = "";
+		if (!file) {
+			return;
+		}
+
+		if (file.size > MAX_ATTACHMENT_BYTES) {
+			toast.error(
+				`File is too large. Max size is ${formatFileSize(MAX_ATTACHMENT_BYTES)}.`,
+			);
+			return;
+		}
+
+		onSendFile?.(file);
+	}
+
+	function handleAudioSend(blob: Blob, durationSeconds: number) {
+		setIsRecording(false);
+		onSendAudio?.(blob, durationSeconds);
+	}
+
 	const canSend = draft.trim().length > 0;
+
+	if (isRecording) {
+		return (
+			<div className="shrink-0 border-border border-t px-3 py-3 pb-safe">
+				<div className="rounded-2xl bg-surface">
+					<RecordingBar
+						onCancel={() => setIsRecording(false)}
+						onSend={handleAudioSend}
+					/>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="shrink-0 border-border border-t px-3 pt-3 pb-safe">
 			<div className="flex items-end gap-2 rounded-2xl bg-surface p-2">
-				<Button
-					variant="ghost"
-					size="icon-lg"
-					aria-label="Add emoji"
-					className="shrink-0"
-				>
-					<Smile className="size-5" />
-				</Button>
+				<EmojiPickerButton onSelect={handleEmojiSelect} />
+
 				<Button
 					variant="ghost"
 					size="icon-lg"
 					aria-label="Attach file"
 					className="shrink-0"
+					onClick={() => fileInputRef.current?.click()}
 				>
 					<Paperclip className="size-5" />
 				</Button>
+				<input
+					ref={fileInputRef}
+					type="file"
+					className="hidden"
+					onChange={handleFileChange}
+				/>
 
-				<Textarea
+				<TextareaAutosize
+					ref={textareaRef}
 					value={draft}
 					onChange={(event) => setDraft(event.target.value)}
 					onKeyDown={handleKeyDown}
 					placeholder="Write a message..."
-					rows={1}
-					className="max-h-32 min-h-9 resize-none border-none bg-transparent px-1 shadow-none focus-visible:ring-0"
+					minRows={1}
+					maxRows={6}
+					className="flex-1 resize-none bg-transparent px-1 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
 				/>
 
 				{canSend ? (
@@ -75,6 +146,7 @@ export function MessageComposer({ onSend }: MessageComposerProps) {
 						size="icon-lg"
 						aria-label="Record voice message"
 						className="shrink-0"
+						onClick={() => setIsRecording(true)}
 					>
 						<Mic className="size-5" />
 					</Button>

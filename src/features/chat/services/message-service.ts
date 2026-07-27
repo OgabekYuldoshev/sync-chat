@@ -1,5 +1,5 @@
 import { useMessagesStore } from "@/features/chat/store/messages-store";
-import type { Message } from "@/features/chat/types/message";
+import type { Message, MessageAttachment } from "@/features/chat/types/message";
 import { importPeerPublicKey } from "@/shared/lib/crypto/keypair";
 import { encryptPayload } from "@/shared/lib/crypto/message-cipher";
 import { getSessionKey } from "@/shared/lib/crypto/session-key";
@@ -11,15 +11,20 @@ import {
 import { isPeerConnected, sendToPeer } from "@/shared/store/peer-store";
 import { useSignalingStore } from "@/shared/store/signaling-store";
 
+export type OutgoingMessageInput = {
+	content?: string;
+	attachment?: MessageAttachment;
+};
+
 /**
- * Encrypts and sends a text message to a known contact. Delivered directly
- * over the WebRTC DataChannel when the peer is connected; otherwise handed
- * to the signaling server as an opaque ciphertext blob for store-and-forward
- * delivery once the peer reconnects.
+ * Encrypts and sends a message (text and/or an attachment) to a known
+ * contact. Delivered directly over the WebRTC DataChannel when the peer is
+ * connected; otherwise handed to the signaling server as an opaque
+ * ciphertext blob for store-and-forward delivery once the peer reconnects.
  */
 export async function sendMessage(
 	peerId: string,
-	content: string,
+	input: OutgoingMessageInput,
 ): Promise<void> {
 	await waitForContactsHydration();
 	const contact = useContactsStore.getState().contacts[peerId];
@@ -36,8 +41,8 @@ export async function sendMessage(
 		id: crypto.randomUUID(),
 		senderId: selfId,
 		isOwn: true,
-		content,
-		attachment: null,
+		content: input.content ?? null,
+		attachment: input.attachment ?? null,
 		createdAt: new Date().toISOString(),
 		status: "sent",
 	};

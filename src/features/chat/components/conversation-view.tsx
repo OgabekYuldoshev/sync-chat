@@ -8,6 +8,10 @@ import { FloatingScrollButton } from "@/features/chat/components/floating-scroll
 import { MessageBubble } from "@/features/chat/components/message-bubble";
 import { MessageComposer } from "@/features/chat/components/message-composer";
 import { TypingIndicator } from "@/features/chat/components/typing-indicator";
+import {
+	audioBlobToAttachment,
+	fileToAttachment,
+} from "@/features/chat/services/file-attachment";
 import { sendMessage } from "@/features/chat/services/message-service";
 import type { Chat } from "@/features/chat/types/chat";
 import type { Message } from "@/features/chat/types/message";
@@ -28,9 +32,31 @@ export function ConversationView({
 	const [showScrollButton] = useState(false);
 
 	function handleSend(content: string) {
-		sendMessage(chat.id, content).catch(() => {
+		sendMessage(chat.id, { content }).catch(() => {
 			toast.error("Message couldn't be sent. Check your connection.");
 		});
+	}
+
+	async function handleSendFile(file: File) {
+		try {
+			const attachment = await fileToAttachment(file);
+			await sendMessage(chat.id, { attachment });
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Couldn't send file.",
+			);
+		}
+	}
+
+	async function handleSendAudio(blob: Blob, durationSeconds: number) {
+		try {
+			const attachment = await audioBlobToAttachment(blob, durationSeconds);
+			await sendMessage(chat.id, { attachment });
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Couldn't send voice message.",
+			);
+		}
 	}
 
 	return (
@@ -63,7 +89,11 @@ export function ConversationView({
 				<FloatingScrollButton visible={showScrollButton} />
 			</div>
 
-			<MessageComposer onSend={handleSend} />
+			<MessageComposer
+				onSend={handleSend}
+				onSendFile={handleSendFile}
+				onSendAudio={handleSendAudio}
+			/>
 		</div>
 	);
 }
