@@ -1,4 +1,5 @@
 import type { Server as HttpServer } from "node:http";
+import { parseCookie } from "cookie";
 import { WebSocket, WebSocketServer } from "ws";
 import {
 	DEVICE_ID_COOKIE,
@@ -12,7 +13,6 @@ import type {
 import { SIGNALING_PATH } from "@/shared/lib/ws/signaling-protocol";
 import { generateGuestName } from "@/shared/utils/generate-guest-name";
 import { haversineMeters } from "./geo";
-import { parseCookieHeader } from "./parse-cookie";
 import { relayStore } from "./relay-store";
 
 type GeoPoint = { lat: number; lng: number };
@@ -81,7 +81,7 @@ export function attachSignalingServer(httpServer: HttpServer): void {
 			return;
 		}
 
-		const cookies = parseCookieHeader(request.headers.cookie);
+		const cookies = parseCookie(request.headers.cookie ?? "");
 		const deviceId = cookies[DEVICE_ID_COOKIE];
 
 		if (!deviceId) {

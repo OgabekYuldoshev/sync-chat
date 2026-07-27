@@ -1,3 +1,4 @@
+import ReconnectingWebSocket from "reconnecting-websocket";
 import {
 	type ClientToServerMessage,
 	type ServerToClientMessage,
@@ -10,8 +11,7 @@ type MessageHandler<T extends ServerToClientMessage["type"]> = (
 	message: Extract<ServerToClientMessage, { type: T }>,
 ) => void;
 
-const MAX_RECONNECT_DELAY_MS = 10_000;
-const BASE_RECONNECT_DELAY_MS = 500;
+const MAX_ENQUEUED_MESSAGES = 100;
 
 function getSignalingUrl(): string {
 	const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -19,11 +19,7 @@ function getSignalingUrl(): string {
 }
 
 class SignalingClient {
-	private socket: WebSocket | null = null;
-	private manuallyClosed = false;
-	private reconnectAttempt = 0;
-	private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-	private pendingOutbox: ClientToServerMessage[] = [];
+	private socket: ReconnectingWebSocket | null = null;
 
 	private readonly messageHandlers = new Map<
 		ServerToClientMessage["type"],
@@ -34,29 +30,30 @@ class SignalingClient {
 	>();
 
 	connect(): void {
-		if (this.socket && this.socket.readyState <= WebSocket.OPEN) {
+		if (this.socket) {
 			return;
 		}
 
-		this.manuallyClosed = false;
-		this.open();
+		const socket = new ReconnectingWebSocket(getSignalingUrl, [], {
+			maxEnqueuedMessages: MAX_ENQUEUED_MESSAGES,
+		});
+		this.socket = socket;
+		this.emitStatus("connecting");
+
+		socket.addEventListener("open", () => this.emitStatus("open"));
+		socket.addEventListener("close", () => this.emitStatus("closed"));
+		socket.addEventListener("message", (event) =>
+			this.handleRawMessage(event.data),
+		);
 	}
 
 	disconnect(): void {
-		this.manuallyClosed = true;
-		if (this.reconnectTimer) {
-			clearTimeout(this.reconnectTimer);
-			this.reconnectTimer = null;
-		}
 		this.socket?.close();
+		this.socket = null;
 	}
 
 	send(message: ClientToServerMessage): void {
-		if (this.socket?.readyState === WebSocket.OPEN) {
-			this.socket.send(JSON.stringify(message));
-			return;
-		}
-		this.pendingOutbox.push(message);
+		this.socket?.send(JSON.stringify(message));
 	}
 
 	on<T extends ServerToClientMessage["type"]>(
@@ -79,49 +76,6 @@ class SignalingClient {
 		return () => {
 			this.statusHandlers.delete(handler);
 		};
-	}
-
-	private open(): void {
-		this.emitStatus("connecting");
-		const socket = new WebSocket(getSignalingUrl());
-		this.socket = socket;
-
-		socket.addEventListener("open", () => {
-			this.reconnectAttempt = 0;
-			this.emitStatus("open");
-			for (const message of this.pendingOutbox) {
-				socket.send(JSON.stringify(message));
-			}
-			this.pendingOutbox = [];
-		});
-
-		socket.addEventListener("message", (event) => {
-			this.handleRawMessage(event.data);
-		});
-
-		socket.addEventListener("close", () => {
-			this.emitStatus("closed");
-			if (!this.manuallyClosed) {
-				this.scheduleReconnect();
-			}
-		});
-
-		socket.addEventListener("error", () => {
-			socket.close();
-		});
-	}
-
-	private scheduleReconnect(): void {
-		const delay = Math.min(
-			BASE_RECONNECT_DELAY_MS * 2 ** this.reconnectAttempt,
-			MAX_RECONNECT_DELAY_MS,
-		);
-		this.reconnectAttempt += 1;
-		this.reconnectTimer = setTimeout(() => {
-			if (!this.manuallyClosed) {
-				this.open();
-			}
-		}, delay);
 	}
 
 	private handleRawMessage(raw: unknown): void {
