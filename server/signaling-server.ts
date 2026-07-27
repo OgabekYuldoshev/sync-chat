@@ -12,7 +12,7 @@ import type {
 } from "@/shared/lib/ws/signaling-protocol";
 import { SIGNALING_PATH } from "@/shared/lib/ws/signaling-protocol";
 import { generateGuestName } from "@/shared/utils/generate-guest-name";
-import { haversineMeters } from "./geo";
+import { haversineMeters } from "@/shared/utils/haversine-distance";
 import { relayStore } from "./relay-store";
 
 type GeoPoint = { lat: number; lng: number };
