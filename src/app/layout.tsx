@@ -36,10 +36,15 @@ export default function RootLayout({
 	return (
 		<html
 			lang="en"
-			className={`dark ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+			suppressHydrationWarning
+			className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
 		>
 			<body className="flex min-h-full flex-col bg-background text-foreground">
-				<ThemeProvider>
+				<ThemeProvider
+					attribute="class"
+					defaultTheme="dark"
+					enableSystem={false}
+				>
 					<TooltipProvider>
 						{children}
 						<Toaster />

@@ -1,28 +1,36 @@
 "use client";
 
 import { MessageCircle } from "lucide-react";
+import { useEffect } from "react";
 import { ChatList } from "@/features/chat/components/chat-list";
 import { ConversationView } from "@/features/chat/components/conversation-view";
-import type { Chat } from "@/features/chat/types/chat";
-import type { Message } from "@/features/chat/types/message";
+import { useChats } from "@/features/chat/hooks/use-chats";
+import { useMessagesStore } from "@/features/chat/store/messages-store";
 import { EmptyState } from "@/shared/components/empty-state";
 import { cn } from "@/shared/lib/cn";
 import { useChatUiStore } from "@/shared/store/chat-ui-store";
 
-type ChatWorkspaceProps = {
-	chats: Chat[];
-	messages: Message[];
-};
-
-export function ChatWorkspace({ chats, messages }: ChatWorkspaceProps) {
+export function ChatWorkspace() {
+	const chats = useChats();
 	const activeChatId = useChatUiStore((state) => state.activeChatId);
 	const setActiveChatId = useChatUiStore((state) => state.setActiveChatId);
+	const messagesByPeer = useMessagesStore((state) => state.messagesByPeer);
+	const markRead = useMessagesStore((state) => state.markRead);
 
 	const activeChat = chats.find((chat) => chat.id === activeChatId) ?? chats[0];
+	const visibleChatId = activeChat?.id;
+
+	useEffect(() => {
+		if (visibleChatId) {
+			markRead(visibleChatId);
+		}
+	}, [visibleChatId, markRead]);
 
 	function handleBack() {
 		setActiveChatId(null);
 	}
+
+	const messages = activeChat ? (messagesByPeer[activeChat.id] ?? []) : [];
 
 	return (
 		<div className="flex h-full w-full">

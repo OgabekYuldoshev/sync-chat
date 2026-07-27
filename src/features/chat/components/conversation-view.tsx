@@ -2,11 +2,13 @@
 
 import { MessageCircle } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { ConversationHeader } from "@/features/chat/components/conversation-header";
 import { FloatingScrollButton } from "@/features/chat/components/floating-scroll-button";
 import { MessageBubble } from "@/features/chat/components/message-bubble";
 import { MessageComposer } from "@/features/chat/components/message-composer";
 import { TypingIndicator } from "@/features/chat/components/typing-indicator";
+import { sendMessage } from "@/features/chat/services/message-service";
 import type { Chat } from "@/features/chat/types/chat";
 import type { Message } from "@/features/chat/types/message";
 import { EmptyState } from "@/shared/components/empty-state";
@@ -24,6 +26,12 @@ export function ConversationView({
 	onBack,
 }: ConversationViewProps) {
 	const [showScrollButton] = useState(false);
+
+	function handleSend(content: string) {
+		sendMessage(chat.id, content).catch(() => {
+			toast.error("Message couldn't be sent. Check your connection.");
+		});
+	}
 
 	return (
 		<div className="flex h-full min-w-0 flex-1 flex-col">
@@ -55,7 +63,7 @@ export function ConversationView({
 				<FloatingScrollButton visible={showScrollButton} />
 			</div>
 
-			<MessageComposer />
+			<MessageComposer onSend={handleSend} />
 		</div>
 	);
 }

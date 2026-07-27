@@ -1,4 +1,5 @@
 import { AppShellLayout } from "@/layouts/app-shell-layout";
+import { SignalingProvider } from "@/providers/signaling-provider";
 import { getCurrentUser } from "@/shared/lib/get-current-user";
 
 type AppGroupLayoutProps = {
@@ -10,5 +11,9 @@ export default async function AppGroupLayout({
 }: AppGroupLayoutProps) {
 	const currentUser = await getCurrentUser();
 
-	return <AppShellLayout currentUser={currentUser}>{children}</AppShellLayout>;
+	return (
+		<SignalingProvider>
+			<AppShellLayout currentUser={currentUser}>{children}</AppShellLayout>
+		</SignalingProvider>
+	);
 }

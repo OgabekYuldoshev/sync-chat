@@ -1,20 +1,23 @@
 "use client";
 
 import { Radar, Search } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { NearbyUserCard } from "@/features/nearby/components/nearby-user-card";
-import type { NearbyUser } from "@/features/nearby/types/nearby-user";
+import { useNearbyUsers } from "@/features/nearby/hooks/use-nearby-users";
 import { EmptyState } from "@/shared/components/empty-state";
 import { Input } from "@/shared/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
+import { useChatUiStore } from "@/shared/store/chat-ui-store";
+import { connectToPeer } from "@/shared/store/peer-store";
 
-type NearbyFilter = "all" | "online" | "connected";
+type NearbyFilter = "all" | "connected";
 
-type NearbyListProps = {
-	users: NearbyUser[];
-};
-
-export function NearbyList({ users }: NearbyListProps) {
+export function NearbyList() {
+	const users = useNearbyUsers();
+	const router = useRouter();
+	const setActiveChatId = useChatUiStore((state) => state.setActiveChatId);
 	const [query, setQuery] = useState("");
 	const [filter, setFilter] = useState<NearbyFilter>("all");
 
@@ -23,14 +26,21 @@ export function NearbyList({ users }: NearbyListProps) {
 
 		return users.filter((user) => {
 			const matchesQuery = user.name.toLowerCase().includes(normalizedQuery);
-			const matchesFilter =
-				filter === "all" ||
-				(filter === "online" && user.status === "online") ||
-				(filter === "connected" && user.isConnected);
-
+			const matchesFilter = filter === "all" || user.isConnected;
 			return matchesQuery && matchesFilter;
 		});
 	}, [users, query, filter]);
+
+	function handleConnect(userId: string) {
+		connectToPeer(userId).catch(() => {
+			toast.error("Couldn't start the connection. Try again.");
+		});
+	}
+
+	function handleChat(userId: string) {
+		setActiveChatId(userId);
+		router.push("/");
+	}
 
 	return (
 		<div className="flex h-full flex-col gap-4 p-6">
@@ -52,7 +62,6 @@ export function NearbyList({ users }: NearbyListProps) {
 				>
 					<TabsList>
 						<TabsTrigger value="all">All</TabsTrigger>
-						<TabsTrigger value="online">Online</TabsTrigger>
 						<TabsTrigger value="connected">Connected</TabsTrigger>
 					</TabsList>
 				</Tabs>
@@ -62,12 +71,17 @@ export function NearbyList({ users }: NearbyListProps) {
 				<EmptyState
 					icon={Radar}
 					title="No one nearby"
-					description="Move around or invite others to connect via QR code."
+					description="Others on this network will appear here automatically. Share a QR code or invite link to reach someone elsewhere."
 				/>
 			) : (
 				<div className="grid grid-cols-2 gap-4 overflow-y-auto sm:grid-cols-3 lg:grid-cols-4">
 					{filteredUsers.map((user) => (
-						<NearbyUserCard key={user.id} user={user} />
+						<NearbyUserCard
+							key={user.id}
+							user={user}
+							onConnect={handleConnect}
+							onChat={handleChat}
+						/>
 					))}
 				</div>
 			)}
