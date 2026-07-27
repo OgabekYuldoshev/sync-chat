@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { registerServiceWorker } from "@/shared/lib/push/push-client";
 import { signalingClient } from "@/shared/lib/ws/signaling-client";
 
 // Side-effect imports: each module wires cross-store subscriptions at module
@@ -22,6 +23,13 @@ export function SignalingProvider({ children }: SignalingProviderProps) {
 	useEffect(() => {
 		signalingClient.connect();
 		return () => signalingClient.disconnect();
+	}, []);
+
+	// Registered passively so a push subscription made earlier keeps working;
+	// this does not request notification permission or subscribe by itself —
+	// that's an explicit opt-in from the settings page.
+	useEffect(() => {
+		registerServiceWorker();
 	}, []);
 
 	return children;

@@ -13,6 +13,8 @@ import type {
 import { SIGNALING_PATH } from "@/shared/lib/ws/signaling-protocol";
 import { generateGuestName } from "@/shared/utils/generate-guest-name";
 import { haversineMeters } from "@/shared/utils/haversine-distance";
+import { notifyNewMessage } from "./push-sender";
+import { pushSubscriptionStore } from "./push-subscription-store";
 import { relayStore } from "./relay-store";
 
 type GeoPoint = { lat: number; lng: number };
@@ -180,11 +182,20 @@ export function attachSignalingServer(
 									from: deviceId,
 									envelope: message.envelope,
 								});
+								await notifyNewMessage(message.to);
 							}
 							break;
 						}
 						case "relay-ack": {
 							await relayStore.ack(deviceId, message.messageId);
+							break;
+						}
+						case "push-subscribe": {
+							await pushSubscriptionStore.save(deviceId, message.subscription);
+							break;
+						}
+						case "push-unsubscribe": {
+							await pushSubscriptionStore.remove(deviceId);
 							break;
 						}
 						default: {

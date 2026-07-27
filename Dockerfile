@@ -21,6 +21,11 @@ FROM oven/bun:${BUN_VERSION} AS builder
 WORKDIR /app
 ENV HUSKY=0
 ENV NEXT_TELEMETRY_DISABLED=1
+# NEXT_PUBLIC_* vars are inlined into the client bundle at build time, so
+# this one has to arrive as a build arg — setting it at container runtime
+# (e.g. via docker-compose `environment:`) would be too late.
+ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY
+ENV NEXT_PUBLIC_VAPID_PUBLIC_KEY=$NEXT_PUBLIC_VAPID_PUBLIC_KEY
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN bun run build

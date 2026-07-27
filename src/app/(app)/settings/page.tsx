@@ -1,6 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
+import { NotificationsSection } from "@/features/settings/components/notifications-section";
 import { Label } from "@/shared/components/ui/label";
 import { Switch } from "@/shared/components/ui/switch";
 
@@ -24,6 +25,8 @@ export default function SettingsPage() {
 					/>
 				</div>
 			</div>
+
+			<NotificationsSection />
 		</div>
 	);
 }
