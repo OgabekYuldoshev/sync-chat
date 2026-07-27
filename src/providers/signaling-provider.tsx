@@ -12,6 +12,7 @@ import { signalingClient } from "@/shared/lib/ws/signaling-client";
 import "@/shared/store/signaling-store";
 import "@/shared/store/peer-store";
 import "@/features/chat/store/messages-store";
+import "@/features/chat/services/file-transfer-receiver";
 
 type SignalingProviderProps = {
 	children: React.ReactNode;

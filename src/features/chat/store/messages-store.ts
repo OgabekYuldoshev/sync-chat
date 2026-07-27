@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { isFileTransferControlMessage } from "@/features/chat/services/file-transfer-protocol";
 import {
 	getMessagesForPeer,
 	saveMessage,
@@ -96,9 +97,20 @@ async function decryptEnvelopeFromContact(
 }
 
 onPeerData(async (peerId, data) => {
+	if (typeof data !== "string") {
+		return; // binary chunk — belongs to the file-transfer protocol, not a chat envelope
+	}
+
 	try {
-		const envelope = JSON.parse(data) as EncryptedEnvelope;
-		const message = await decryptEnvelopeFromContact(peerId, envelope);
+		const parsed = JSON.parse(data);
+		if (isFileTransferControlMessage(parsed)) {
+			return; // handled by file-transfer-receiver's own onPeerData subscription
+		}
+
+		const message = await decryptEnvelopeFromContact(
+			peerId,
+			parsed as EncryptedEnvelope,
+		);
 		if (message) {
 			useMessagesStore.getState().appendMessage(peerId, message);
 		}

@@ -8,12 +8,14 @@ const DATA_CHANNEL_LABEL = "peerchat";
  */
 const ICE_SERVERS: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
 
+const BUFFERED_AMOUNT_LOW_THRESHOLD = 1_000_000;
+
 export type PeerConnectionOptions = {
 	peerId: string;
 	isInitiator: boolean;
 	onIceCandidate: (candidate: RTCIceCandidateInit) => void;
 	onDataChannelOpen: () => void;
-	onDataChannelMessage: (data: string) => void;
+	onDataChannelMessage: (data: string | ArrayBuffer) => void;
 	onClose: () => void;
 };
 
@@ -57,6 +59,8 @@ export class PeerConnection {
 	}
 
 	private setupDataChannel(channel: RTCDataChannel): void {
+		channel.binaryType = "arraybuffer";
+		channel.bufferedAmountLowThreshold = BUFFERED_AMOUNT_LOW_THRESHOLD;
 		this.dataChannel = channel;
 		channel.addEventListener("open", () => this.options.onDataChannelOpen());
 		channel.addEventListener("message", (event) =>
@@ -95,12 +99,34 @@ export class PeerConnection {
 		return this.dataChannel?.readyState === "open";
 	}
 
-	send(data: string): boolean {
-		if (this.isDataChannelOpen) {
-			this.dataChannel?.send(data);
-			return true;
+	get bufferedAmount(): number {
+		return this.dataChannel?.bufferedAmount ?? 0;
+	}
+
+	/** Resolves once bufferedAmount drops back to the low-water threshold — basic send-side backpressure for large chunked transfers. */
+	waitForBufferedAmountLow(): Promise<void> {
+		const channel = this.dataChannel;
+		if (!channel || channel.bufferedAmount <= BUFFERED_AMOUNT_LOW_THRESHOLD) {
+			return Promise.resolve();
 		}
-		return false;
+
+		return new Promise((resolve) => {
+			channel.addEventListener("bufferedamountlow", () => resolve(), {
+				once: true,
+			});
+		});
+	}
+
+	send(data: string | ArrayBuffer): boolean {
+		if (!this.isDataChannelOpen || !this.dataChannel) {
+			return false;
+		}
+		if (typeof data === "string") {
+			this.dataChannel.send(data);
+		} else {
+			this.dataChannel.send(data);
+		}
+		return true;
 	}
 
 	close(): void {

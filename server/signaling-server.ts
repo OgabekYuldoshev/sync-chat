@@ -99,7 +99,7 @@ export function attachSignalingServer(httpServer: HttpServer): void {
 
 	wss.on(
 		"connection",
-		(ws: WebSocket, deviceId: string, displayName: string) => {
+		async (ws: WebSocket, deviceId: string, displayName: string) => {
 			connections.get(deviceId)?.ws.close();
 
 			const connection: Connection = {
@@ -113,16 +113,20 @@ export function attachSignalingServer(httpServer: HttpServer): void {
 
 			send(ws, { type: "welcome", deviceId });
 
-			for (const queued of relayStore.drain(deviceId)) {
-				send(ws, {
-					type: "relay-message",
-					from: queued.from,
-					messageId: queued.messageId,
-					envelope: queued.envelope,
-				});
+			try {
+				for (const queued of await relayStore.drain(deviceId)) {
+					send(ws, {
+						type: "relay-message",
+						from: queued.from,
+						messageId: queued.messageId,
+						envelope: queued.envelope,
+					});
+				}
+			} catch (error) {
+				console.error("[signaling] failed to drain relay queue:", error);
 			}
 
-			ws.on("message", (raw) => {
+			ws.on("message", async (raw) => {
 				let message: ClientToServerMessage;
 
 				try {
@@ -131,55 +135,59 @@ export function attachSignalingServer(httpServer: HttpServer): void {
 					return;
 				}
 
-				switch (message.type) {
-					case "hello": {
-						connection.publicKey = message.publicKey;
-						broadcastPresence();
-						break;
-					}
-					case "location": {
-						connection.location = { lat: message.lat, lng: message.lng };
-						broadcastPresence();
-						break;
-					}
-					case "signal": {
-						const target = connections.get(message.to);
-						if (target) {
-							send(target.ws, {
-								type: "signal",
-								from: deviceId,
-								signal: message.signal,
-							});
+				try {
+					switch (message.type) {
+						case "hello": {
+							connection.publicKey = message.publicKey;
+							broadcastPresence();
+							break;
 						}
-						break;
-					}
-					case "relay-message": {
-						const messageId = crypto.randomUUID();
-						const target = connections.get(message.to);
+						case "location": {
+							connection.location = { lat: message.lat, lng: message.lng };
+							broadcastPresence();
+							break;
+						}
+						case "signal": {
+							const target = connections.get(message.to);
+							if (target) {
+								send(target.ws, {
+									type: "signal",
+									from: deviceId,
+									signal: message.signal,
+								});
+							}
+							break;
+						}
+						case "relay-message": {
+							const messageId = crypto.randomUUID();
+							const target = connections.get(message.to);
 
-						if (target) {
-							send(target.ws, {
-								type: "relay-message",
-								from: deviceId,
-								messageId,
-								envelope: message.envelope,
-							});
-						} else {
-							relayStore.enqueue(message.to, {
-								messageId,
-								from: deviceId,
-								envelope: message.envelope,
-							});
+							if (target) {
+								send(target.ws, {
+									type: "relay-message",
+									from: deviceId,
+									messageId,
+									envelope: message.envelope,
+								});
+							} else {
+								await relayStore.enqueue(message.to, {
+									messageId,
+									from: deviceId,
+									envelope: message.envelope,
+								});
+							}
+							break;
 						}
-						break;
+						case "relay-ack": {
+							await relayStore.ack(deviceId, message.messageId);
+							break;
+						}
+						default: {
+							break;
+						}
 					}
-					case "relay-ack": {
-						relayStore.ack(deviceId, message.messageId);
-						break;
-					}
-					default: {
-						break;
-					}
+				} catch (error) {
+					console.error("[signaling] failed to handle message:", error);
 				}
 			});
 

@@ -6,7 +6,7 @@ import TextareaAutosize from "react-textarea-autosize";
 import { toast } from "sonner";
 import { EmojiPickerButton } from "@/features/chat/components/emoji-picker-button";
 import { RecordingBar } from "@/features/chat/components/recording-bar";
-import { MAX_ATTACHMENT_BYTES } from "@/features/chat/services/file-attachment";
+import { LARGE_ATTACHMENT_MAX_BYTES } from "@/features/chat/services/file-transfer-protocol";
 import { Button } from "@/shared/components/ui/button";
 import { formatFileSize } from "@/shared/utils/format-file-size";
 
@@ -69,9 +69,9 @@ export function MessageComposer({
 			return;
 		}
 
-		if (file.size > MAX_ATTACHMENT_BYTES) {
+		if (file.size > LARGE_ATTACHMENT_MAX_BYTES) {
 			toast.error(
-				`File is too large. Max size is ${formatFileSize(MAX_ATTACHMENT_BYTES)}.`,
+				`File is too large. Max size is ${formatFileSize(LARGE_ATTACHMENT_MAX_BYTES)}.`,
 			);
 			return;
 		}

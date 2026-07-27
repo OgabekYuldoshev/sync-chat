@@ -18,7 +18,9 @@ export const usePeerStore = create<PeerStore>(() => ({
 const connections = new Map<string, PeerConnection>();
 const pendingCandidates = new Map<string, RTCIceCandidateInit[]>();
 const pendingOffers = new Map<string, string>();
-const dataHandlers = new Set<(peerId: string, data: string) => void>();
+const dataHandlers = new Set<
+	(peerId: string, data: string | ArrayBuffer) => void
+>();
 
 function setConnectionState(peerId: string, state: PeerConnectionState): void {
 	usePeerStore.setState((previous) => ({
@@ -147,7 +149,10 @@ export function rejectConnectionRequest(peerId: string): void {
 	});
 }
 
-export function sendToPeer(peerId: string, data: string): boolean {
+export function sendToPeer(
+	peerId: string,
+	data: string | ArrayBuffer,
+): boolean {
 	return connections.get(peerId)?.send(data) ?? false;
 }
 
@@ -155,8 +160,17 @@ export function isPeerConnected(peerId: string): boolean {
 	return connections.get(peerId)?.isDataChannelOpen ?? false;
 }
 
+/** Basic send-side backpressure for large chunked transfers — resolves once the channel has drained. */
+export function waitForPeerBufferedAmountLow(peerId: string): Promise<void> {
+	const connection = connections.get(peerId);
+	if (!connection) {
+		return Promise.resolve();
+	}
+	return connection.waitForBufferedAmountLow();
+}
+
 export function onPeerData(
-	handler: (peerId: string, data: string) => void,
+	handler: (peerId: string, data: string | ArrayBuffer) => void,
 ): () => void {
 	dataHandlers.add(handler);
 	return () => {

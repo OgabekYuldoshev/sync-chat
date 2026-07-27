@@ -2,14 +2,19 @@ export type MessageStatus = "sent" | "delivered" | "read";
 
 export type MessageAttachmentType = "image" | "video" | "audio" | "file";
 
-export type MessageAttachment = {
+type MessageAttachmentBase = {
 	type: MessageAttachmentType;
 	name: string;
 	mimeType: string;
-	dataUrl: string;
 	sizeLabel: string;
 	durationLabel?: string;
 };
+
+export type MessageAttachment = MessageAttachmentBase &
+	(
+		| { storage: "inline"; dataUrl: string }
+		| { storage: "blob"; blobId: string }
+	);
 
 export type Message = {
 	id: string;

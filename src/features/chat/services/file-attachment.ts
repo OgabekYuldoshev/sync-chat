@@ -1,24 +1,10 @@
-import type {
-	MessageAttachment,
-	MessageAttachmentType,
-} from "@/features/chat/types/message";
+import {
+	inferAttachmentType,
+	SMALL_ATTACHMENT_MAX_BYTES,
+} from "@/features/chat/services/file-transfer-protocol";
+import type { MessageAttachment } from "@/features/chat/types/message";
 import { formatDuration } from "@/shared/utils/format-duration";
 import { formatFileSize } from "@/shared/utils/format-file-size";
-
-export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
-
-function inferAttachmentType(mimeType: string): MessageAttachmentType {
-	if (mimeType.startsWith("image/")) {
-		return "image";
-	}
-	if (mimeType.startsWith("video/")) {
-		return "video";
-	}
-	if (mimeType.startsWith("audio/")) {
-		return "audio";
-	}
-	return "file";
-}
 
 function readBlobAsDataUrl(blob: Blob): Promise<string> {
 	return new Promise((resolve, reject) => {
@@ -29,24 +15,25 @@ function readBlobAsDataUrl(blob: Blob): Promise<string> {
 	});
 }
 
-function assertWithinSizeLimit(size: number): void {
-	if (size > MAX_ATTACHMENT_BYTES) {
+function assertWithinInlineSizeLimit(size: number): void {
+	if (size > SMALL_ATTACHMENT_MAX_BYTES) {
 		throw new Error(
-			`File is too large. Max size is ${formatFileSize(MAX_ATTACHMENT_BYTES)}.`,
+			`File is too large for instant sharing. Max size is ${formatFileSize(SMALL_ATTACHMENT_MAX_BYTES)} — larger files are sent as a direct transfer instead.`,
 		);
 	}
 }
 
 export async function fileToAttachment(file: File): Promise<MessageAttachment> {
-	assertWithinSizeLimit(file.size);
+	assertWithinInlineSizeLimit(file.size);
 	const dataUrl = await readBlobAsDataUrl(file);
 
 	return {
 		type: inferAttachmentType(file.type),
 		name: file.name,
 		mimeType: file.type || "application/octet-stream",
-		dataUrl,
 		sizeLabel: formatFileSize(file.size),
+		storage: "inline",
+		dataUrl,
 	};
 }
 
@@ -54,15 +41,16 @@ export async function audioBlobToAttachment(
 	blob: Blob,
 	durationSeconds: number,
 ): Promise<MessageAttachment> {
-	assertWithinSizeLimit(blob.size);
+	assertWithinInlineSizeLimit(blob.size);
 	const dataUrl = await readBlobAsDataUrl(blob);
 
 	return {
 		type: "audio",
 		name: "Voice message",
 		mimeType: blob.type || "audio/webm",
-		dataUrl,
 		sizeLabel: formatFileSize(blob.size),
 		durationLabel: formatDuration(durationSeconds),
+		storage: "inline",
+		dataUrl,
 	};
 }

@@ -1,30 +1,35 @@
 "use client";
 
 import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area";
+import { forwardRef } from "react";
 import { cn } from "@/shared/lib/cn";
 
-function ScrollArea({
-	className,
-	children,
-	...props
-}: ScrollAreaPrimitive.Root.Props) {
-	return (
-		<ScrollAreaPrimitive.Root
-			data-slot="scroll-area"
-			className={cn("relative", className)}
-			{...props}
-		>
-			<ScrollAreaPrimitive.Viewport
-				data-slot="scroll-area-viewport"
-				className="size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1"
+type ScrollAreaProps = ScrollAreaPrimitive.Root.Props & {
+	viewportProps?: ScrollAreaPrimitive.Viewport.Props;
+};
+
+const ScrollArea = forwardRef<HTMLDivElement, ScrollAreaProps>(
+	function ScrollArea({ className, children, viewportProps, ...props }, ref) {
+		return (
+			<ScrollAreaPrimitive.Root
+				data-slot="scroll-area"
+				className={cn("relative", className)}
+				{...props}
 			>
-				{children}
-			</ScrollAreaPrimitive.Viewport>
-			<ScrollBar />
-			<ScrollAreaPrimitive.Corner />
-		</ScrollAreaPrimitive.Root>
-	);
-}
+				<ScrollAreaPrimitive.Viewport
+					data-slot="scroll-area-viewport"
+					className="size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1"
+					ref={ref}
+					{...viewportProps}
+				>
+					{children}
+				</ScrollAreaPrimitive.Viewport>
+				<ScrollBar />
+				<ScrollAreaPrimitive.Corner />
+			</ScrollAreaPrimitive.Root>
+		);
+	},
+);
 
 function ScrollBar({
 	className,

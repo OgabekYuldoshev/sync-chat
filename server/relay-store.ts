@@ -1,4 +1,5 @@
 import type { EncryptedEnvelope } from "@/shared/lib/ws/signaling-protocol";
+import { redis } from "./redis-client";
 
 export type QueuedMessage = {
 	messageId: string;
@@ -7,40 +8,50 @@ export type QueuedMessage = {
 };
 
 const MAX_QUEUED_PER_RECIPIENT = 200;
+const QUEUE_TTL_SECONDS = 14 * 24 * 60 * 60;
+
+function queueKey(recipientId: string): string {
+	return `relay:queue:${recipientId}`;
+}
 
 /**
- * In-memory store-and-forward queue for messages sent while the recipient is
- * offline. Single-process only — swap for Redis/Postgres before running more
- * than one server instance or needing delivery to survive a restart.
+ * Redis-backed store-and-forward queue for messages sent while the
+ * recipient is offline. Durable across server restarts; queues expire on
+ * their own after QUEUE_TTL_SECONDS so abandoned devices don't linger
+ * forever.
  */
 class RelayStore {
-	private readonly queues = new Map<string, QueuedMessage[]>();
-
-	enqueue(recipientId: string, message: QueuedMessage): void {
-		const queue = this.queues.get(recipientId) ?? [];
-		queue.push(message);
-
-		if (queue.length > MAX_QUEUED_PER_RECIPIENT) {
-			queue.shift();
-		}
-
-		this.queues.set(recipientId, queue);
+	async enqueue(recipientId: string, message: QueuedMessage): Promise<void> {
+		const key = queueKey(recipientId);
+		await redis
+			.multi()
+			.rpush(key, JSON.stringify(message))
+			.ltrim(key, -MAX_QUEUED_PER_RECIPIENT, -1)
+			.expire(key, QUEUE_TTL_SECONDS)
+			.exec();
 	}
 
-	drain(recipientId: string): QueuedMessage[] {
-		return this.queues.get(recipientId) ?? [];
+	async drain(recipientId: string): Promise<QueuedMessage[]> {
+		const raw = await redis.lrange(queueKey(recipientId), 0, -1);
+		return raw.map((entry) => JSON.parse(entry) as QueuedMessage);
 	}
 
-	ack(recipientId: string, messageId: string): void {
-		const queue = this.queues.get(recipientId);
-		if (!queue) {
+	async ack(recipientId: string, messageId: string): Promise<void> {
+		const key = queueKey(recipientId);
+		const raw = await redis.lrange(key, 0, -1);
+		const remaining = raw.filter(
+			(entry) => (JSON.parse(entry) as QueuedMessage).messageId !== messageId,
+		);
+
+		if (remaining.length === raw.length) {
 			return;
 		}
 
-		this.queues.set(
-			recipientId,
-			queue.filter((message) => message.messageId !== messageId),
-		);
+		const pipeline = redis.multi().del(key);
+		if (remaining.length > 0) {
+			pipeline.rpush(key, ...remaining).expire(key, QUEUE_TTL_SECONDS);
+		}
+		await pipeline.exec();
 	}
 }
 

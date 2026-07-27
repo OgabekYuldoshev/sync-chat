@@ -3,6 +3,7 @@
 import { Check, CheckCheck, FileText, Pause, Play } from "lucide-react";
 import Image from "next/image";
 import { useRef, useState } from "react";
+import { useAttachmentUrl } from "@/features/chat/hooks/use-attachment-url";
 import type { Message } from "@/features/chat/types/message";
 import { cn } from "@/shared/lib/cn";
 import { formatMessageTime } from "@/shared/utils/format-date";
@@ -30,6 +31,7 @@ function AudioAttachmentPlayer({
 	attachment: NonNullable<Message["attachment"]>;
 	isOwn: boolean;
 }) {
+	const url = useAttachmentUrl(attachment);
 	const audioRef = useRef<HTMLAudioElement>(null);
 	const [isPlaying, setIsPlaying] = useState(false);
 
@@ -50,9 +52,10 @@ function AudioAttachmentPlayer({
 			<button
 				type="button"
 				onClick={togglePlay}
+				disabled={!url}
 				aria-label={isPlaying ? "Pause voice message" : "Play voice message"}
 				className={cn(
-					"flex size-8 shrink-0 items-center justify-center rounded-full",
+					"flex size-8 shrink-0 items-center justify-center rounded-full disabled:opacity-50",
 					isOwn ? "bg-primary-foreground/20" : "bg-primary/15 text-primary",
 				)}
 			>
@@ -60,16 +63,18 @@ function AudioAttachmentPlayer({
 			</button>
 			<div className="h-1 flex-1 rounded-full bg-current/20" />
 			<span className="text-xs opacity-70">{attachment.durationLabel}</span>
-			<audio
-				ref={audioRef}
-				src={attachment.dataUrl}
-				onPlay={() => setIsPlaying(true)}
-				onPause={() => setIsPlaying(false)}
-				onEnded={() => setIsPlaying(false)}
-				className="hidden"
-			>
-				<track kind="captions" />
-			</audio>
+			{url && (
+				<audio
+					ref={audioRef}
+					src={url}
+					onPlay={() => setIsPlaying(true)}
+					onPause={() => setIsPlaying(false)}
+					onEnded={() => setIsPlaying(false)}
+					className="hidden"
+				>
+					<track kind="captions" />
+				</audio>
+			)}
 		</div>
 	);
 }
@@ -81,28 +86,34 @@ function MessageAttachmentContent({
 	attachment: NonNullable<Message["attachment"]>;
 	isOwn: boolean;
 }) {
+	const url = useAttachmentUrl(attachment);
+
 	if (attachment.type === "image") {
 		return (
 			<div className="relative aspect-video w-64 overflow-hidden rounded-lg bg-black/20">
-				<Image
-					src={attachment.dataUrl}
-					alt={attachment.name}
-					fill
-					unoptimized
-					className="object-cover"
-				/>
+				{url && (
+					<Image
+						src={url}
+						alt={attachment.name}
+						fill
+						unoptimized
+						className="object-cover"
+					/>
+				)}
 			</div>
 		);
 	}
 
 	if (attachment.type === "video") {
-		return (
+		return url ? (
 			// biome-ignore lint/a11y/useMediaCaption: user-sent video attachment, no caption track available
 			<video
-				src={attachment.dataUrl}
+				src={url}
 				controls
 				className="aspect-video w-64 rounded-lg bg-black/30"
 			/>
+		) : (
+			<div className="aspect-video w-64 animate-pulse rounded-lg bg-black/30" />
 		);
 	}
 
@@ -112,9 +123,13 @@ function MessageAttachmentContent({
 
 	return (
 		<a
-			href={attachment.dataUrl}
+			href={url ?? undefined}
 			download={attachment.name}
-			className="flex w-64 items-center gap-3 rounded-lg bg-black/10 px-3 py-2.5 transition-opacity hover:opacity-80"
+			aria-disabled={!url}
+			className={cn(
+				"flex w-64 items-center gap-3 rounded-lg bg-black/10 px-3 py-2.5 transition-opacity",
+				url ? "hover:opacity-80" : "pointer-events-none opacity-60",
+			)}
 		>
 			<span
 				className={cn(
