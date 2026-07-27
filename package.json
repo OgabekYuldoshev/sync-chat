@@ -3,16 +3,15 @@
 	"version": "0.1.0",
 	"private": true,
 	"scripts": {
-		"dev": "bun run server.ts",
+		"dev": "bun run server/server.ts",
 		"build": "next build",
-		"start": "NODE_ENV=production bun run server.ts",
+		"start": "NODE_ENV=production bun run server/server.ts",
 		"lint": "biome check",
 		"format": "biome format --write",
 		"prepare": "husky"
 	},
 	"dependencies": {
 		"@base-ui/react": "^1.6.0",
-		"@hono/node-server": "^2.0.12",
 		"@hookform/resolvers": "^5.5.7",
 		"actium": "^2.0.0",
 		"class-variance-authority": "^0.7.1",
@@ -20,7 +19,6 @@
 		"cookie": "^2.0.1",
 		"emoji-picker-react": "^4.19.1",
 		"es-toolkit": "^1.50.0",
-		"hono": "^4.12.32",
 		"idb": "^8.0.3",
 		"ioredis": "^5.11.1",
 		"lucide-react": "^1.27.0",
