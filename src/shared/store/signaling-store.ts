@@ -3,6 +3,7 @@ import {
 	exportPublicKeyBase64,
 	getOrCreateDeviceKeyPair,
 } from "@/shared/lib/crypto/keypair";
+import { watchLocation } from "@/shared/lib/geolocation/watch-location";
 import type { SignalingStatus } from "@/shared/lib/ws/signaling-client";
 import { signalingClient } from "@/shared/lib/ws/signaling-client";
 import type { PresencePeer } from "@/shared/lib/ws/signaling-protocol";
@@ -19,11 +20,23 @@ export const useSignalingStore = create<SignalingStore>(() => ({
 	presence: {},
 }));
 
+let stopWatchingLocation: (() => void) | null = null;
+
 signalingClient.onStatusChange((status) => {
 	useSignalingStore.setState({ status });
 
 	if (status === "open") {
 		announcePublicKey();
+
+		if (!stopWatchingLocation) {
+			stopWatchingLocation = watchLocation((point) => {
+				signalingClient.send({
+					type: "location",
+					lat: point.lat,
+					lng: point.lng,
+				});
+			});
+		}
 	}
 });
 

@@ -1,8 +1,9 @@
-import { MessageCircle, UserPlus } from "lucide-react";
+import { MapPin, MessageCircle, UserPlus } from "lucide-react";
 import type { NearbyUser } from "@/features/nearby/types/nearby-user";
 import { AvatarWithStatus } from "@/shared/components/avatar-with-status";
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
+import { formatDistance } from "@/shared/utils/format-distance";
 
 type NearbyUserCardProps = {
 	user: NearbyUser;
@@ -21,8 +22,15 @@ export function NearbyUserCard({
 
 			<div>
 				<p className="font-medium text-sm">{user.name}</p>
-				<p className="mt-0.5 text-muted-foreground text-xs">
-					{user.isConnecting ? "Connecting..." : "Available on this network"}
+				<p className="mt-0.5 flex items-center justify-center gap-1 text-muted-foreground text-xs">
+					{user.isConnecting ? (
+						"Connecting..."
+					) : (
+						<>
+							<MapPin className="size-3" />
+							{formatDistance(user.distanceMeters)}
+						</>
+					)}
 				</p>
 			</div>
 

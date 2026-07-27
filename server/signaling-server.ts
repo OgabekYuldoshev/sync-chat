@@ -11,14 +11,18 @@ import type {
 } from "@/shared/lib/ws/signaling-protocol";
 import { SIGNALING_PATH } from "@/shared/lib/ws/signaling-protocol";
 import { generateGuestName } from "@/shared/utils/generate-guest-name";
+import { haversineMeters } from "./geo";
 import { parseCookieHeader } from "./parse-cookie";
 import { relayStore } from "./relay-store";
+
+type GeoPoint = { lat: number; lng: number };
 
 type Connection = {
 	ws: WebSocket;
 	deviceId: string;
 	displayName: string;
 	publicKey: string | null;
+	location: GeoPoint | null;
 };
 
 /**
@@ -44,20 +48,31 @@ export function attachSignalingServer(httpServer: HttpServer): void {
 		}
 	}
 
-	function broadcastPresence(): void {
-		const allPeers: PresencePeer[] = [...connections.values()]
-			.filter((connection) => connection.publicKey)
-			.map((connection) => ({
-				deviceId: connection.deviceId,
-				publicKey: connection.publicKey as string,
-				displayName: connection.displayName,
-			}));
+	function distanceFrom(viewer: Connection, other: Connection): number | null {
+		if (!(viewer.location && other.location)) {
+			return null;
+		}
+		return Math.round(haversineMeters(viewer.location, other.location));
+	}
 
-		for (const connection of connections.values()) {
-			send(connection.ws, {
-				type: "presence",
-				peers: allPeers.filter((peer) => peer.deviceId !== connection.deviceId),
-			});
+	// Distance is computed per-viewer and sent instead of raw coordinates —
+	// peers learn "how far", never each other's actual lat/lng.
+	function broadcastPresence(): void {
+		const known = [...connections.values()].filter(
+			(connection) => connection.publicKey,
+		);
+
+		for (const viewer of connections.values()) {
+			const peers: PresencePeer[] = known
+				.filter((connection) => connection.deviceId !== viewer.deviceId)
+				.map((connection) => ({
+					deviceId: connection.deviceId,
+					publicKey: connection.publicKey as string,
+					displayName: connection.displayName,
+					distanceMeters: distanceFrom(viewer, connection),
+				}));
+
+			send(viewer.ws, { type: "presence", peers });
 		}
 	}
 
@@ -92,6 +107,7 @@ export function attachSignalingServer(httpServer: HttpServer): void {
 				deviceId,
 				displayName,
 				publicKey: null,
+				location: null,
 			};
 			connections.set(deviceId, connection);
 
@@ -118,6 +134,11 @@ export function attachSignalingServer(httpServer: HttpServer): void {
 				switch (message.type) {
 					case "hello": {
 						connection.publicKey = message.publicKey;
+						broadcastPresence();
+						break;
+					}
+					case "location": {
+						connection.location = { lat: message.lat, lng: message.lng };
 						broadcastPresence();
 						break;
 					}

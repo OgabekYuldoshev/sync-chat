@@ -11,14 +11,25 @@ export function useNearbyUsers(): NearbyUser[] {
 	const contacts = useContactsStore((state) => state.contacts);
 	const connectionStates = usePeerStore((state) => state.connectionStates);
 
-	return Object.values(presence).map(
-		(peer): NearbyUser => ({
-			id: peer.deviceId,
-			name: peer.displayName,
-			avatarUrl: null,
-			status: "online",
-			isConnected: Boolean(contacts[peer.deviceId]),
-			isConnecting: connectionStates[peer.deviceId] === "connecting",
-		}),
-	);
+	return Object.values(presence)
+		.map(
+			(peer): NearbyUser => ({
+				id: peer.deviceId,
+				name: peer.displayName,
+				avatarUrl: null,
+				status: "online",
+				isConnected: Boolean(contacts[peer.deviceId]),
+				isConnecting: connectionStates[peer.deviceId] === "connecting",
+				distanceMeters: peer.distanceMeters,
+			}),
+		)
+		.sort((a, b) => {
+			if (a.distanceMeters === null) {
+				return 1;
+			}
+			if (b.distanceMeters === null) {
+				return -1;
+			}
+			return a.distanceMeters - b.distanceMeters;
+		});
 }

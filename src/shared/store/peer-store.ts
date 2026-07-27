@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { create } from "zustand";
 import { PeerConnection } from "@/shared/lib/webrtc/peer-connection";
 import { signalingClient } from "@/shared/lib/ws/signaling-client";
@@ -16,6 +17,7 @@ export const usePeerStore = create<PeerStore>(() => ({
 
 const connections = new Map<string, PeerConnection>();
 const pendingCandidates = new Map<string, RTCIceCandidateInit[]>();
+const pendingOffers = new Map<string, string>();
 const dataHandlers = new Set<(peerId: string, data: string) => void>();
 
 function setConnectionState(peerId: string, state: PeerConnectionState): void {
@@ -94,6 +96,17 @@ async function flushPendingCandidates(
 	pendingCandidates.delete(peerId);
 }
 
+async function answerOffer(peerId: string, sdp: string): Promise<void> {
+	const connection = connections.get(peerId) ?? createConnection(peerId, false);
+	const answer = await connection.createAnswer({ type: "offer", sdp });
+	await flushPendingCandidates(peerId, connection);
+	signalingClient.send({
+		type: "signal",
+		to: peerId,
+		signal: { kind: "answer", sdp: answer.sdp ?? "" },
+	});
+}
+
 /** Initiates a P2P connection to a peer discovered via presence. No-op if already connecting/connected. */
 export async function connectToPeer(peerId: string): Promise<void> {
 	if (connections.has(peerId)) {
@@ -107,6 +120,30 @@ export async function connectToPeer(peerId: string): Promise<void> {
 		type: "signal",
 		to: peerId,
 		signal: { kind: "offer", sdp: offer.sdp ?? "" },
+	});
+}
+
+/** Accepts a pending incoming connection request shown via the toast prompt. */
+export function acceptConnectionRequest(peerId: string): void {
+	const sdp = pendingOffers.get(peerId);
+	if (!sdp) {
+		return;
+	}
+	pendingOffers.delete(peerId);
+	answerOffer(peerId, sdp).catch((error) => {
+		console.error("Failed to accept connection request", error);
+	});
+}
+
+/** Declines a pending incoming connection request, notifying the requester. */
+export function rejectConnectionRequest(peerId: string): void {
+	if (!pendingOffers.delete(peerId)) {
+		return;
+	}
+	signalingClient.send({
+		type: "signal",
+		to: peerId,
+		signal: { kind: "reject" },
 	});
 }
 
@@ -133,17 +170,29 @@ signalingClient.on("signal", async (message) => {
 	try {
 		switch (signal.kind) {
 			case "offer": {
-				const connection =
-					connections.get(from) ?? createConnection(from, false);
-				const answer = await connection.createAnswer({
-					type: "offer",
-					sdp: signal.sdp,
-				});
-				await flushPendingCandidates(from, connection);
-				signalingClient.send({
-					type: "signal",
-					to: from,
-					signal: { kind: "answer", sdp: answer.sdp ?? "" },
+				const isKnownContact = Boolean(
+					useContactsStore.getState().contacts[from],
+				);
+
+				if (isKnownContact) {
+					await answerOffer(from, signal.sdp);
+					break;
+				}
+
+				pendingOffers.set(from, signal.sdp);
+				const fromName =
+					useSignalingStore.getState().presence[from]?.displayName ?? "Someone";
+
+				toast(`${fromName} wants to connect`, {
+					duration: 20_000,
+					action: {
+						label: "Accept",
+						onClick: () => acceptConnectionRequest(from),
+					},
+					cancel: {
+						label: "Decline",
+						onClick: () => rejectConnectionRequest(from),
+					},
 				});
 				break;
 			}
@@ -165,6 +214,18 @@ signalingClient.on("signal", async (message) => {
 					break;
 				}
 				await connection.addIceCandidate(signal.candidate);
+				break;
+			}
+			case "reject": {
+				const connection = connections.get(from);
+				connection?.close();
+				connections.delete(from);
+				pendingCandidates.delete(from);
+				setConnectionState(from, "closed");
+
+				const fromName =
+					useSignalingStore.getState().presence[from]?.displayName ?? "They";
+				toast.error(`${fromName} declined the connection request`);
 				break;
 			}
 			default: {
