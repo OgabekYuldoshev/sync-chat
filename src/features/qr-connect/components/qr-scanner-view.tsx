@@ -36,7 +36,9 @@ export function QrScannerView({ onScanned }: QrScannerViewProps) {
 		const scanner = new QrScanner(
 			videoElement,
 			(result) => {
+				console.log("[qr-debug] scan result:", result.data);
 				const deviceId = extractDeviceId(result.data);
+				console.log("[qr-debug] extracted deviceId:", deviceId);
 				if (deviceId) {
 					scanner.stop();
 					onScanned(deviceId);
