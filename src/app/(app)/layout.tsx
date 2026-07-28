@@ -1,3 +1,4 @@
+import { WelcomeNameForm } from "@/features/onboarding";
 import { AppShellLayout } from "@/layouts/app-shell-layout";
 import { SignalingProvider } from "@/providers/signaling-provider";
 import { getCurrentUser } from "@/shared/lib/get-current-user";
@@ -10,6 +11,10 @@ export default async function AppGroupLayout({
 	children,
 }: AppGroupLayoutProps) {
 	const currentUser = await getCurrentUser();
+
+	if (!currentUser.hasCustomName) {
+		return <WelcomeNameForm />;
+	}
 
 	return (
 		<SignalingProvider>

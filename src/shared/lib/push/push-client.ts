@@ -71,10 +71,11 @@ export async function enablePushNotifications(): Promise<boolean> {
 		return false;
 	}
 
-	const registration = await registerServiceWorker();
-	if (!registration) {
+	const registered = await registerServiceWorker();
+	if (!registered) {
 		return false;
 	}
+	const registration = await navigator.serviceWorker.ready;
 
 	const existing = await registration.pushManager.getSubscription();
 	const subscription =
