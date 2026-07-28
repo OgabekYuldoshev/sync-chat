@@ -25,7 +25,10 @@ type Connection = {
 	displayName: string;
 	publicKey: string | null;
 	location: GeoPoint | null;
+	isAlive: boolean;
 };
+
+const HEARTBEAT_INTERVAL_MS = 30_000;
 
 /**
  * Attaches the P2P signaling WebSocket server to an existing HTTP server on
@@ -115,8 +118,13 @@ export function attachSignalingServer(
 				displayName,
 				publicKey: null,
 				location: null,
+				isAlive: true,
 			};
 			connections.set(deviceId, connection);
+
+			ws.on("pong", () => {
+				connection.isAlive = true;
+			});
 
 			send(ws, { type: "welcome", deviceId });
 
@@ -216,7 +224,23 @@ export function attachSignalingServer(
 		},
 	);
 
+	// Cloudflare/Traefik drop idle sockets without ever sending a close
+	// frame, leaving both sides believing the connection is still open.
+	// Pinging on an interval and terminating non-responders forces a real
+	// "close" event so clients' ReconnectingWebSocket actually reconnects.
+	const heartbeat = setInterval(() => {
+		for (const connection of connections.values()) {
+			if (!connection.isAlive) {
+				connection.ws.terminate();
+				continue;
+			}
+			connection.isAlive = false;
+			connection.ws.ping();
+		}
+	}, HEARTBEAT_INTERVAL_MS);
+
 	return () => {
+		clearInterval(heartbeat);
 		for (const connection of connections.values()) {
 			connection.ws.close(1001, "Server shutting down");
 		}
