@@ -11,9 +11,9 @@ export default async function ProfilePage() {
 	const inviteLink = `${protocol}://${host}/qr-connect/${currentUser.deviceId}`;
 
 	return (
-		<div className="mx-auto h-full w-full max-w-md overflow-y-auto">
+		<div className="mx-auto h-full w-full max-w-sm overflow-y-auto">
 			<ProfileHeader user={currentUser} />
-			<div className="flex justify-center px-6 pb-10">
+			<div className="border-t px-6 pt-6 pb-8">
 				<QrCodeCard inviteLink={inviteLink} />
 			</div>
 		</div>

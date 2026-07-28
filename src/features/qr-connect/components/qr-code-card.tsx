@@ -20,30 +20,39 @@ export function QrCodeCard({ inviteLink }: QrCodeCardProps) {
 	}
 
 	return (
-		<Card className="flex flex-col items-center gap-5 p-8 text-center">
+		<Card className="w-full items-center gap-4 p-6 text-center">
 			<div className="space-y-1">
-				<p className="font-semibold text-lg">Your QR Code</p>
-				<p className="text-muted-foreground text-sm">
-					Let others scan this to connect instantly
+				<p className="font-heading font-medium text-sm">Your QR code</p>
+				<p className="text-muted-foreground text-xs">
+					Scan to connect instantly
 				</p>
 			</div>
 
-			<div className="rounded-2xl bg-white p-4">
+			<div className="rounded-xl bg-white p-3">
 				<QRCode
 					value={inviteLink}
-					size={176}
+					size={144}
 					fgColor="#0a0a0a"
 					bgColor="#ffffff"
 				/>
 			</div>
 
-			<p className="max-w-[220px] truncate text-muted-foreground text-xs">
+			<p className="w-full truncate rounded-lg bg-muted px-3 py-1.5 font-mono text-muted-foreground text-xs">
 				{inviteLink}
 			</p>
 
-			<Button onClick={handleCopy} className="w-full">
-				{copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-				{copied ? "Copied!" : "Copy invite link"}
+			<Button
+				onClick={handleCopy}
+				variant="outline"
+				size="sm"
+				className="w-full"
+			>
+				{copied ? (
+					<Check className="size-3.5" />
+				) : (
+					<Copy className="size-3.5" />
+				)}
+				{copied ? "Copied" : "Copy invite link"}
 			</Button>
 		</Card>
 	);

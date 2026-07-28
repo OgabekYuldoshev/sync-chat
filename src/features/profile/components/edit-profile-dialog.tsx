@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useActionMutation } from "actium/react";
+import { Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -57,7 +58,8 @@ export function EditProfileDialog({ currentName }: EditProfileDialogProps) {
 
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
-			<DialogTrigger render={<Button variant="outline" />}>
+			<DialogTrigger render={<Button variant="outline" size="sm" />}>
+				<Pencil className="size-3.5" />
 				Edit profile
 			</DialogTrigger>
 			<DialogContent>
