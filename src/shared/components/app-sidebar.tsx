@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageCircle, QrCode, Radar, Repeat2, Settings } from "lucide-react";
+import { MessageCircle, Radar, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AvatarWithStatus } from "@/shared/components/avatar-with-status";
@@ -15,8 +15,6 @@ import type { CurrentUser } from "@/shared/lib/get-current-user";
 const NAV_ITEMS = [
 	{ title: "Chats", href: "/", icon: MessageCircle },
 	{ title: "Nearby", href: "/nearby", icon: Radar },
-	{ title: "QR Connect", href: "/qr-connect", icon: QrCode },
-	{ title: "Transfers", href: "/transfers", icon: Repeat2 },
 ] as const;
 
 type AppSidebarProps = {

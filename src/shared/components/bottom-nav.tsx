@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageCircle, QrCode, Radar, Repeat2, User } from "lucide-react";
+import { MessageCircle, Radar, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/shared/lib/cn";
@@ -9,8 +9,6 @@ import { useChatUiStore } from "@/shared/store/chat-ui-store";
 const NAV_ITEMS = [
 	{ title: "Chats", href: "/", icon: MessageCircle },
 	{ title: "Nearby", href: "/nearby", icon: Radar },
-	{ title: "QR", href: "/qr-connect", icon: QrCode },
-	{ title: "Transfers", href: "/transfers", icon: Repeat2 },
 	{ title: "Profile", href: "/profile", icon: User },
 ] as const;
 
